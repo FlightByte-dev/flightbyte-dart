@@ -1,0 +1,22 @@
+name: flightbyte
+description: Official Dart client for the FlightByte flight status API. Look flights up, subscribe to changes and verify signed webhooks.
+version: 0.1.0
+homepage: https://flightbyte.dev
+documentation: https://api.flightbyte.dev/docs
+topics:
+  - flight
+  - aviation
+  - flight-status
+  - webhooks
+  - api-client
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  crypto: ^3.0.8
+  http: ^1.6.0
+
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.33.0
