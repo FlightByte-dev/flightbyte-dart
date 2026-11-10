@@ -37,7 +37,7 @@ Future<void> main(List<String> args) async {
     final arr = flight.arrival;
     print('${flight.carrier.name} $carrier$flightNumber on $date');
     print('  ${dep.airport.iata} → ${arr.airport.iata}  '
-        '${flight.status.label} (${flight.status.phase.name})');
+        '${flight.status.label} (${flight.status.phaseValue})');
     print('  departs ${dep.times.bestGate?.local ?? '?'}'
         '${dep.gate == null ? '' : ' from gate ${dep.gate}'}'
         '${(dep.delayMinutes ?? 0) > 0 ? ', ${dep.delayMinutes} min late' : ''}');
@@ -51,7 +51,9 @@ Future<void> main(List<String> args) async {
     }
 
     final quota = client.lastRateLimit?.minute;
-    if (quota != null) print('  quota: $quota this minute');
+    if (quota != null) {
+      print('  quota: ${quota.remaining} of ${quota.limit} left this minute');
+    }
   } on NotFoundException {
     print('$carrier$flightNumber did not operate on $date.');
   } on FlightByteException catch (e) {
