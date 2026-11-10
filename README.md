@@ -279,6 +279,8 @@ dart pub publish --dry-run
 
 The tests never touch the real API and need no key. They cover every method's request mapping, the error mapping for each status, the models against fixtures shaped like the API's JSON, and webhook verification against signatures made with Node's `createHmac` exactly as the API signs them. CI runs the same commands on every push.
 
+How to add a field, an enum value or an endpoint is in [CONTRIBUTING.md](CONTRIBUTING.md). Report security issues by email, as [SECURITY.md](SECURITY.md) explains, never in a public issue.
+
 <details>
 <summary><b>Project layout</b></summary>
 
@@ -294,6 +296,8 @@ lib/
   src/rate_limit.dart      X-RateLimit-* headers
 example/main.dart          looks a flight up from the terminal
 test/fixtures/             API-shaped JSON and signed webhook vectors
+tool/webhook_vectors.mjs   regenerates the signed vectors with Node, as the API signs
+tool/release_notes.sh      a version's CHANGELOG.md section, for the GitHub release
 ```
 
 </details>
@@ -302,8 +306,10 @@ test/fixtures/             API-shaped JSON and signed webhook vectors
 <summary><b>Releasing</b></summary>
 
 1. Bump `version` in `pubspec.yaml` and `packageVersion` in `lib/src/version.dart`; a test fails if they differ.
-2. Add the release to `CHANGELOG.md`.
-3. Push a tag such as `v0.1.1`. The publish workflow publishes it to pub.dev, once automated publishing is enabled for this repository on the package's admin page. The first release is published by hand with `dart pub publish`.
+2. Give the version its own `## <version>` section in `CHANGELOG.md`.
+3. Push a tag such as `v0.1.1`.
+
+The publish workflow checks that the tag, `pubspec.yaml` and `lib/src/version.dart` agree and that the changelog has the section, publishes to pub.dev unless that version is already there, and creates the GitHub release from the changelog section. Run it by hand from the Actions tab to rehearse without publishing. Publishing from a tag needs automated publishing enabled for this repository on the package's pub.dev admin page; the first release is published by hand with `dart pub publish`.
 
 </details>
 

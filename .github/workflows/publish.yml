@@ -1,15 +1,106 @@
-# Publishes to pub.dev when a tag like v0.1.1 is pushed.
-# One-time setup on pub.dev: package Admin tab > Automated publishing >
-# enable GitHub Actions, repository <owner>/flightbyte-dart, tag pattern v{{version}}.
-name: Publish to pub.dev
+# Publishes a release when a tag like v0.1.1 is pushed:
+#   1. checks that the tag, pubspec.yaml and lib/src/version.dart agree, and
+#      that CHANGELOG.md has a section for the version;
+#   2. publishes to pub.dev, unless that version is already there;
+#   3. creates the GitHub release from the version's CHANGELOG.md section.
+#
+# Run it by hand from the Actions tab to rehearse: it runs every check and
+# builds the package archive, but publishes and releases nothing.
+#
+# One-time setup on pub.dev: the package's Admin tab > Automated publishing >
+# enable publishing from GitHub Actions for FlightByte-dev/flightbyte-dart,
+# with the tag pattern v{{version}}.
+name: Publish
 
 on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  check:
+    name: Check versions and notes
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      published: ${{ steps.version.outputs.published }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: version
+        name: Compare versions
+        run: |
+          version="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml)"
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match version $version in pubspec.yaml."
+            exit 1
+          fi
+          if ! grep -qx "const packageVersion = '$version';" lib/src/version.dart; then
+            echo "::error::lib/src/version.dart does not say $version."
+            exit 1
+          fi
+          status="$(curl -s -o /dev/null -w '%{http_code}' "https://pub.dev/api/packages/flightbyte/versions/$version")"
+          published=false
+          [[ "$status" == 200 ]] && published=true
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "published=$published" >> "$GITHUB_OUTPUT"
+          echo "Version $version, already on pub.dev: $published"
+
+      - name: Release notes
+        run: |
+          {
+            echo "## Release notes for ${{ steps.version.outputs.version }}"
+            echo
+            tool/release_notes.sh "${{ steps.version.outputs.version }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   publish:
+    name: pub.dev
+    needs: check
+    if: needs.check.outputs.published == 'false'
     permissions:
       id-token: write
     uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    with:
+      use-flutter: false
+      test-run: ${{ github.event_name != 'push' }}
+
+  release:
+    name: GitHub release
+    needs: [check, publish]
+    if: >-
+      always() &&
+      github.event_name == 'push' &&
+      needs.check.result == 'success' &&
+      (needs.publish.result == 'success' || needs.publish.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists."
+            exit 0
+          fi
+          tool/release_notes.sh "$VERSION" > "$RUNNER_TEMP/notes.md"
+          flags=()
+          [[ "$VERSION" == *-* ]] && flags+=(--prerelease)
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --verify-tag \
+            "${flags[@]}"
