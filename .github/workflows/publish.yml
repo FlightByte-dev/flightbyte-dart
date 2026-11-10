@@ -66,12 +66,22 @@ jobs:
     name: pub.dev
     needs: check
     if: needs.check.outputs.published == 'false'
+    runs-on: ubuntu-latest
     permissions:
+      contents: read
+      # setup-dart turns this into the OIDC token pub.dev accepts.
       id-token: write
-    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
-    with:
-      use-flutter: false
-      test-run: ${{ github.event_name != 'push' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - run: dart test
+      - run: dart pub publish --dry-run
+      - name: Publish
+        if: github.event_name == 'push'
+        run: dart pub publish --force
 
   release:
     name: GitHub release
