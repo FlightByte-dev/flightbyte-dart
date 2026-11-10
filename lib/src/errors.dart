@@ -48,9 +48,7 @@ sealed class FlightByteApiException extends FlightByteException {
   FlightByteApiException._(
       this.statusCode, this.body, this.rawBody, this.headers)
       : messages = _messages(body),
-        super(_messages(body).join(' ').isEmpty
-            ? 'HTTP $statusCode'
-            : _messages(body).join(' '));
+        super(_summary(statusCode, body, headers));
 
   /// Builds the subclass matching [statusCode] from a raw response.
   factory FlightByteApiException.fromResponse(
@@ -232,6 +230,9 @@ final class ServerException extends FlightByteApiException {
 }
 
 /// A non-2xx status this package does not map to a type of its own.
+///
+/// This includes a redirect the client refused to follow because it pointed
+/// at another scheme, host or port; `headers['location']` says where.
 final class UnexpectedStatusException extends FlightByteApiException {
   UnexpectedStatusException._(
       super.statusCode, super.body, super.rawBody, super.headers)
@@ -246,6 +247,17 @@ Json _decode(String rawBody) {
   } on FormatException {
     return const {};
   }
+}
+
+String _summary(int statusCode, Json body, Map<String, String> headers) {
+  final joined = _messages(body).join(' ');
+  if (joined.isNotEmpty) return joined;
+  final location = headers['location'];
+  if (statusCode >= 300 && statusCode < 400 && location != null) {
+    return 'HTTP $statusCode redirect to $location was not followed, so the '
+        'API key was not sent there.';
+  }
+  return 'HTTP $statusCode';
 }
 
 List<String> _messages(Json body) {

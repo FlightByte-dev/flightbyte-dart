@@ -64,33 +64,19 @@ final class Transport {
     Object? body,
     Map<String, String>? headers,
   }) async {
-    final request = http.Request(method, url(path, query))
-      ..headers.addAll({
-        'x-api-key': apiKey,
-        'accept': 'application/json',
-        if (!_isWeb) 'user-agent': 'flightbyte-dart/$packageVersion',
-        ...?headers,
-      });
-    if (body != null) {
-      request
-        ..headers['content-type'] = 'application/json; charset=utf-8'
-        ..body = jsonEncode(body);
-    }
-
+    final target = url(path, query);
     final http.Response response;
     try {
-      response = await httpClient
-          .send(request)
-          .then(http.Response.fromStream)
-          .timeout(timeout);
+      response =
+          await _exchange(method, target, body, headers).timeout(timeout);
     } on TimeoutException catch (error) {
       throw FlightByteConnectionException(
-        '$method ${request.url} timed out after ${timeout.inSeconds}s.',
+        '$method $target timed out after ${timeout.inSeconds}s.',
         cause: error,
       );
     } on http.ClientException catch (error) {
       throw FlightByteConnectionException(
-        '$method ${request.url} failed: ${error.message}',
+        '$method $target failed: ${error.message}',
         cause: error,
       );
     }
@@ -108,12 +94,63 @@ final class Transport {
       return jsonDecode(text);
     } on FormatException catch (error) {
       throw FormatException(
-        'Expected JSON from $method ${request.url}, got: '
+        'Expected JSON from $method $target, got: '
         '${text.length > 200 ? '${text.substring(0, 200)}...' : text}',
         error.source,
       );
     }
   }
+
+  /// Sends the request and follows redirects that stay on the same origin.
+  ///
+  /// Redirects are followed here rather than by the HTTP client, because
+  /// `dart:io` copies every header, `x-api-key` included, to whatever host a
+  /// `Location` names. A redirect to another scheme, host or port is not
+  /// followed: the 3xx response comes back and [send] throws it as an
+  /// `UnexpectedStatusException`, so the key never leaves the API's origin.
+  /// Browsers follow redirects themselves, so this applies to the VM only.
+  Future<http.Response> _exchange(
+    String method,
+    Uri target,
+    Object? body,
+    Map<String, String>? headers,
+  ) async {
+    var current = target;
+    for (var hops = 0;; hops++) {
+      final request = http.Request(method, current)
+        ..followRedirects = false
+        ..headers.addAll({
+          'x-api-key': apiKey,
+          'accept': 'application/json',
+          if (!_isWeb) 'user-agent': 'flightbyte-dart/$packageVersion',
+          ...?headers,
+        });
+      if (body != null) {
+        request
+          ..headers['content-type'] = 'application/json; charset=utf-8'
+          ..body = jsonEncode(body);
+      }
+      final response =
+          await httpClient.send(request).then(http.Response.fromStream);
+
+      final location = response.headers['location'];
+      if (!_redirects.contains(response.statusCode) ||
+          location == null ||
+          !(method == 'GET' || method == 'HEAD') ||
+          hops >= _maxRedirects) {
+        return response;
+      }
+      final next = current.resolve(location);
+      if (!_sameOrigin(current, next)) return response;
+      current = next;
+    }
+  }
+
+  static const _redirects = {301, 302, 303, 307, 308};
+  static const _maxRedirects = 5;
+
+  static bool _sameOrigin(Uri a, Uri b) =>
+      a.scheme == b.scheme && a.host == b.host && a.port == b.port;
 
   /// Closes the HTTP client when this transport created it.
   void close() {

@@ -44,6 +44,33 @@ void main() {
       expect(h.last.url.path, '/v1/flights/TK/1848/2026-09-08/timeline');
       expect(h.last.url.queryParameters, {'destination': 'CDG'});
       expect(timeline.entries.single.title, 'Time Adjustment');
+      expect(timeline.count, 1);
+    });
+
+    test('timeline count is read from the response', () async {
+      final h = Harness([
+        Reply(200, {
+          'flightKey': 'TK1848:2026-09-08',
+          'count': 7,
+          'data': jsonFixture('flight.json')['timeline'],
+        }),
+      ]);
+      final timeline = await h.client.flights
+          .timeline(carrier: 'TK', flightNumber: '1848', date: '2026-09-08');
+      expect(timeline.count, 7);
+      expect(timeline.entries, hasLength(1));
+    });
+
+    test('timeline count falls back to the entry count', () async {
+      final h = Harness([
+        Reply(200, {
+          'flightKey': 'TK1848:2026-09-08',
+          'data': jsonFixture('flight.json')['timeline'],
+        }),
+      ]);
+      final timeline = await h.client.flights
+          .timeline(carrier: 'TK', flightNumber: '1848', date: '2026-09-08');
+      expect(timeline.count, 1);
     });
   });
 

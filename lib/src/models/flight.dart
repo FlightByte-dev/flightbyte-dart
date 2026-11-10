@@ -631,16 +631,28 @@ final class FlightSnapshot {
 /// The response of `flights.timeline`.
 final class FlightTimeline {
   /// Creates a [FlightTimeline].
-  const FlightTimeline({required this.flightKey, required this.entries});
+  const FlightTimeline({
+    required this.flightKey,
+    required this.count,
+    required this.entries,
+  });
 
   /// Decodes a [FlightTimeline] from JSON.
-  factory FlightTimeline.fromJson(Json json) => FlightTimeline(
-        flightKey: reqString(json, 'flightKey'),
-        entries: readList(json, 'data', TimelineEntry.fromJson),
-      );
+  factory FlightTimeline.fromJson(Json json) {
+    final entries = readList(json, 'data', TimelineEntry.fromJson);
+    return FlightTimeline(
+      flightKey: reqString(json, 'flightKey'),
+      count: optInt(json, 'count') ?? entries.length,
+      entries: entries,
+    );
+  }
 
   /// The flight's key.
   final String flightKey;
+
+  /// The number of entries, as the API reports it. Falls back to
+  /// `entries.length` when the response leaves it out.
+  final int count;
 
   /// History entries, newest first.
   final List<TimelineEntry> entries;

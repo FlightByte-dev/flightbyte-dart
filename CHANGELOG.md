@@ -1,3 +1,8 @@
+## Unreleased
+
+- `FlightTimeline.count`: the entry count the API sends with a flight's timeline, falling back to `entries.length` when absent. `FlightTimeline`'s constructor now takes `count`.
+- Security: the client no longer sends `X-API-Key` to another host. `dart:io` followed redirects itself and copied every header to wherever `Location` pointed, so a redirect to another scheme, host or port leaked the key. Redirects are now followed only on the API's own origin, for GET and HEAD and at most five hops; any other redirect throws an `UnexpectedStatusException` with the 3xx status and `headers['location']`. Browsers follow redirects themselves, so this applies to the Dart VM and Flutter on mobile and desktop.
+
 ## 0.1.0
 
 - First release.
