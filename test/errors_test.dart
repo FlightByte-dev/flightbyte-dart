@@ -89,6 +89,23 @@ void main() {
     expect(e.capCents, 2000);
   });
 
+  test('402 credits_exhausted carries the balance', () async {
+    final e = await _fail(Reply(
+      402,
+      _body(402, 'No credits left.', {
+        'code': 'credits_exhausted',
+        'balance': 0,
+        'expiresAt': '2027-01-01T00:00:00.000Z',
+      }),
+    )) as PaymentRequiredException;
+    expect(e.code, 'credits_exhausted');
+    expect(e.balance, 0);
+    expect(e.expiresAt, DateTime.utc(2027));
+    expect(e.limit, isNull);
+    expect(e.used, isNull);
+    expect(e.resetsAt, isNull);
+  });
+
   test('403 carries the code', () async {
     final e = await _fail(
         Reply(403, _body(403, 'Suspended', {'code': 'account_suspended'})));

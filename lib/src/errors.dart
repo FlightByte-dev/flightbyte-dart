@@ -160,26 +160,34 @@ final class AuthenticationException extends FlightByteApiException {
       : super._();
 }
 
-/// 402: no watched flights left in this usage period.
+/// 402: no watched flights can be created.
 ///
-/// [code] is `watched_flight_limit` (the plan's cap) or `overage_cap_reached`
-/// (the account's overage cap).
+/// [code] is `watched_flight_limit` (the plan's cap), `overage_cap_reached`
+/// (the account's overage cap) or `credits_exhausted` (prepaid credits used
+/// up).
 final class PaymentRequiredException extends FlightByteApiException {
   PaymentRequiredException._(
       super.statusCode, super.body, super.rawBody, super.headers)
       : super._();
 
-  /// Watched flights the period allows.
+  /// Watched flights the period allows. Not with `credits_exhausted`.
   int? get limit => _int(body['limit']);
 
-  /// Watched flights created this period.
+  /// Watched flights created this period. Not with `credits_exhausted`.
   int? get used => _int(body['used']);
 
-  /// When the period, and so the count, resets.
+  /// When the period, and so the count, resets. Not with `credits_exhausted`.
   DateTime? get resetsAt => _date(body['resetsAt']);
 
   /// The overage cap in US cents, with `overage_cap_reached`.
   int? get capCents => _int(body['capCents']);
+
+  /// Prepaid credits left, with `credits_exhausted`.
+  int? get balance => _int(body['balance']);
+
+  /// When the prepaid credits expire or expired, 12 months after the last
+  /// top-up, with `credits_exhausted`. Null when the API sends none.
+  DateTime? get expiresAt => _date(body['expiresAt']);
 }
 
 /// 403: the account is suspended (`code: account_suspended`) or an OAuth token
