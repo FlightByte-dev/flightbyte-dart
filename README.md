@@ -204,7 +204,7 @@ x-flightbyte-signature: t=1789305971,v1=5f1c9a...e3b2
 v1 = HMAC-SHA256(secret, "<t>." + <raw body>)
 ```
 
-`Webhook.verify` computes the HMAC over the body you received, not over JSON you parsed and serialised again, compares it in constant time, accepts any of several `v1` values, and rejects a `t` more than five minutes from now. `Webhook.sign` produces the same header, for testing your receiver. The test suite checks both against signatures made by the API's own signer.
+`Webhook.verify` computes the HMAC over the body you received, not over JSON you parsed and serialised again, compares it in constant time, accepts any of several `v1` values, and rejects a `t` more than five minutes from now. An empty secret throws an `ArgumentError` instead of being used as a key, since anyone can sign with an empty key. `Webhook.sign` produces the same header, for testing your receiver. The test suite checks both against signatures made by the API's own signer.
 
 The reasons behind each step are in [Verifying webhook signatures](https://flightbyte.dev/guides/verifying-webhook-signatures), and reference receivers in Node.js, Python and Go are in [flightbyte-webhook-examples](https://github.com/FlightByte-dev/flightbyte-webhook-examples).
 
@@ -224,7 +224,7 @@ Every failed request throws a subclass of the sealed `FlightByteException`, so a
 | `RateLimitException` | `429` | A minute, day or month quota is used up. Wait `retryAfter`. |
 | `UpstreamException` | `502` | The flight data provider failed. Retry shortly. |
 | `ServerException`, `UnexpectedStatusException` | other | Anything else. `requestId` is what support asks for. |
-| `FlightByteConnectionException` | none | No response at all: network error or timeout. |
+| `FlightByteConnectionException` | none | No response at all: network error, TLS failure or timeout. `cause` holds the underlying error. |
 
 ```dart
 try {
@@ -265,7 +265,7 @@ final client = FlightByteClient(
 | `apiKey` | required | Your API key, sent as `x-api-key`. |
 | `baseUrl` | `https://api.flightbyte.dev/v1` | API base URL, e.g. `http://localhost:3000/v1` for a local API. |
 | `httpClient` | a new `http.Client` | Bring your own for retries, logging or tests. A client you pass is not closed by `close()`. |
-| `timeout` | 30 seconds | Bounds each request, response body included. |
+| `timeout` | 30 seconds | Bounds each request, response body included. When it runs out, the request is aborted, not left running. |
 
 ## Development
 

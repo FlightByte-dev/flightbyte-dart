@@ -76,6 +76,35 @@ void main() {
     );
   });
 
+  test('any exception from the HTTP client is a FlightByteConnectionException',
+      () async {
+    final client = FlightByteClient(
+      apiKey: 'k',
+      httpClient: MockClient((_) async => throw const _TlsFailure()),
+    );
+    await expectLater(
+      client.flights.get(carrier: 'TK', flightNumber: '1', date: '2026-09-08'),
+      throwsA(isA<FlightByteConnectionException>()
+          .having((e) => e.cause, 'cause', isA<_TlsFailure>())
+          .having((e) => e.message, 'message', contains('handshake'))),
+    );
+  });
+
+  test('a timeout aborts the request in flight', () async {
+    final inner = _Hanging();
+    final client = FlightByteClient(
+      apiKey: 'k',
+      timeout: const Duration(milliseconds: 20),
+      httpClient: inner,
+    );
+    await expectLater(
+      client.flights.get(carrier: 'TK', flightNumber: '1', date: '2026-09-08'),
+      throwsA(isA<FlightByteConnectionException>()
+          .having((e) => e.message, 'message', contains('after 20 ms'))),
+    );
+    await inner.aborted.future.timeout(const Duration(seconds: 1));
+  });
+
   test('a slow response times out', () async {
     final never = Completer<http.Response>();
     final client = FlightByteClient(
@@ -110,6 +139,27 @@ void main() {
     FlightByteClient(apiKey: 'k', httpClient: inner).close();
     expect(closed, isFalse);
   });
+}
+
+final class _TlsFailure implements Exception {
+  const _TlsFailure();
+
+  @override
+  String toString() => 'HandshakeException: handshake failed';
+}
+
+/// Never answers, and completes [aborted] when the request is aborted.
+final class _Hanging extends http.BaseClient {
+  final aborted = Completer<void>();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final trigger = request is http.Abortable ? request.abortTrigger : null;
+    if (trigger == null) return Completer<http.StreamedResponse>().future;
+    await trigger;
+    aborted.complete();
+    throw http.RequestAbortedException(request.url);
+  }
 }
 
 final class _CloseTracking extends http.BaseClient {

@@ -7,7 +7,8 @@ import '../transport.dart';
 
 /// Watched flights and their webhooks. Reach it as `client.subscriptions`.
 ///
-/// Every subscription is a billable watched flight.
+/// Every subscription is a billable watched flight. Each method throws an
+/// [ArgumentError] for an empty subscription id, before sending anything.
 final class SubscriptionsResource {
   /// Internal; use `FlightByteClient.subscriptions`.
   SubscriptionsResource(this._transport);
@@ -52,10 +53,10 @@ final class SubscriptionsResource {
       'POST',
       ['subscriptions'],
       body: {
-        'carrier': carrier,
-        'flightNumber': flightNumber,
-        'date': date,
-        'webhookUrl': webhookUrl.toString(),
+        'carrier': requireParam('carrier', carrier),
+        'flightNumber': requireParam('flightNumber', flightNumber),
+        'date': requireParam('date', date),
+        'webhookUrl': requireParam('webhookUrl', webhookUrl.toString()),
         if (origin != null) 'origin': origin,
         if (destination != null) 'destination': destination,
         if (flightId != null) 'flightId': flightId,
@@ -123,7 +124,7 @@ final class SubscriptionsResource {
   /// One subscription. Throws [NotFoundException] when it does not exist or
   /// belongs to another key.
   Future<Subscription> get(String id) async =>
-      _subscription(await _transport.send('GET', ['subscriptions', id]));
+      _subscription(await _transport.send('GET', ['subscriptions', _id(id)]));
 
   /// Changes a subscription. Only the fields you pass are changed.
   ///
@@ -139,7 +140,7 @@ final class SubscriptionsResource {
   }) async {
     final body = await _transport.send(
       'PATCH',
-      ['subscriptions', id],
+      ['subscriptions', _id(id)],
       body: {
         if (webhookUrl != null) 'webhookUrl': webhookUrl.toString(),
         if (events != null) 'events': _eventValues(events),
@@ -154,21 +155,22 @@ final class SubscriptionsResource {
 
   /// Stops watching the flight and deletes the subscription.
   Future<void> delete(String id) async {
-    await _transport.send('DELETE', ['subscriptions', id]);
+    await _transport.send('DELETE', ['subscriptions', _id(id)]);
   }
 
   /// Pauses polling and deliveries; [resume] picks up where it left off.
   Future<Subscription> pause(String id) async => _subscription(
-      await _transport.send('POST', ['subscriptions', id, 'pause']));
+      await _transport.send('POST', ['subscriptions', _id(id), 'pause']));
 
   /// Resumes a paused or suspended subscription. A completed one cannot be
   /// resumed and gives a [BadRequestException].
   Future<Subscription> resume(String id) async => _subscription(
-      await _transport.send('POST', ['subscriptions', id, 'resume']));
+      await _transport.send('POST', ['subscriptions', _id(id), 'resume']));
 
   /// Sends a `subscription.test` webhook and returns its event id.
   Future<String> sendTest(String id) async {
-    final body = await _transport.send('POST', ['subscriptions', id, 'test']);
+    final body =
+        await _transport.send('POST', ['subscriptions', _id(id), 'test']);
     return reqString(asJson(body, 'the test result'), 'eventId');
   }
 
@@ -176,7 +178,7 @@ final class SubscriptionsResource {
   Future<List<DeliveryRecord>> deliveries(String id, {int? limit}) async {
     final body = await _transport.send(
       'GET',
-      ['subscriptions', id, 'deliveries'],
+      ['subscriptions', _id(id), 'deliveries'],
       query: {'limit': limit},
     );
     return readList(
@@ -188,7 +190,7 @@ final class SubscriptionsResource {
   Future<List<WebhookEvent>> events(String id, {int? limit}) async {
     final body = await _transport.send(
       'GET',
-      ['subscriptions', id, 'events'],
+      ['subscriptions', _id(id), 'events'],
       query: {'limit': limit},
     );
     return readList(
@@ -197,7 +199,8 @@ final class SubscriptionsResource {
 
   /// The full webhook signing secret.
   Future<String> secret(String id) async {
-    final body = await _transport.send('GET', ['subscriptions', id, 'secret']);
+    final body =
+        await _transport.send('GET', ['subscriptions', _id(id), 'secret']);
     return reqString(asJson(body, 'the secret'), 'secret');
   }
 
@@ -206,9 +209,11 @@ final class SubscriptionsResource {
   /// right away.
   Future<String> rotateSecret(String id) async {
     final body = await _transport
-        .send('POST', ['subscriptions', id, 'secret', 'rotate']);
+        .send('POST', ['subscriptions', _id(id), 'secret', 'rotate']);
     return reqString(asJson(body, 'the secret'), 'secret');
   }
+
+  static String _id(String id) => requireParam('id', id);
 
   Subscription _subscription(Object? body) =>
       Subscription.fromJson(asJson(body, 'the subscription'));

@@ -9,6 +9,16 @@ import 'version.dart';
 
 const _isWeb = bool.fromEnvironment('dart.library.js_interop');
 
+/// Throws an [ArgumentError] when the path parameter [value] is empty, before
+/// it turns into a request for the wrong URL: an empty subscription id would
+/// otherwise ask for the subscription list.
+String requireParam(String name, String value) {
+  if (value.trim().isEmpty) {
+    throw ArgumentError.value(value, name, 'must not be empty');
+  }
+  return value;
+}
+
 /// Sends authenticated requests and turns error statuses into exceptions.
 ///
 /// Internal: reach the API through `FlightByteClient`.
@@ -65,18 +75,31 @@ final class Transport {
     Map<String, String>? headers,
   }) async {
     final target = url(path, query);
+    // Completing it aborts the request in flight, so a timeout frees the
+    // connection instead of leaving the request running in the background.
+    final abort = Completer<void>();
+    var timedOut = false;
     final http.Response response;
     try {
-      response =
-          await _exchange(method, target, body, headers).timeout(timeout);
-    } on TimeoutException catch (error) {
+      response = await _exchange(method, target, body, headers, abort.future)
+          .timeout(timeout, onTimeout: () {
+        timedOut = true;
+        abort.complete();
+        throw TimeoutException(null, timeout);
+      });
+    } on Exception catch (error) {
+      // Every failure to get a response is a FlightByteConnectionException:
+      // a ClientException, but also what an http.Client of your own or
+      // dart:io throws directly, such as a TLS HandshakeException.
+      if (timedOut || error is TimeoutException) {
+        throw FlightByteConnectionException(
+          '$method $target timed out after ${_describe(timeout)}.',
+          cause: error,
+        );
+      }
+      final reason = error is http.ClientException ? error.message : '$error';
       throw FlightByteConnectionException(
-        '$method $target timed out after ${timeout.inSeconds}s.',
-        cause: error,
-      );
-    } on http.ClientException catch (error) {
-      throw FlightByteConnectionException(
-        '$method $target failed: ${error.message}',
+        '$method $target failed: $reason',
         cause: error,
       );
     }
@@ -114,17 +137,19 @@ final class Transport {
     Uri target,
     Object? body,
     Map<String, String>? headers,
+    Future<void> abortTrigger,
   ) async {
     var current = target;
     for (var hops = 0;; hops++) {
-      final request = http.Request(method, current)
-        ..followRedirects = false
-        ..headers.addAll({
-          'x-api-key': apiKey,
-          'accept': 'application/json',
-          if (!_isWeb) 'user-agent': 'flightbyte-dart/$packageVersion',
-          ...?headers,
-        });
+      final request =
+          http.AbortableRequest(method, current, abortTrigger: abortTrigger)
+            ..followRedirects = false
+            ..headers.addAll({
+              'x-api-key': apiKey,
+              'accept': 'application/json',
+              if (!_isWeb) 'user-agent': 'flightbyte-dart/$packageVersion',
+              ...?headers,
+            });
       if (body != null) {
         request
           ..headers['content-type'] = 'application/json; charset=utf-8'
@@ -140,7 +165,12 @@ final class Transport {
           hops >= _maxRedirects) {
         return response;
       }
-      final next = current.resolve(location);
+      final Uri next;
+      try {
+        next = current.resolve(location);
+      } on FormatException {
+        return response;
+      }
       if (!_sameOrigin(current, next)) return response;
       current = next;
     }
@@ -148,6 +178,11 @@ final class Transport {
 
   static const _redirects = {301, 302, 303, 307, 308};
   static const _maxRedirects = 5;
+
+  static String _describe(Duration duration) =>
+      duration.inMilliseconds % 1000 == 0
+          ? '${duration.inSeconds} s'
+          : '${duration.inMilliseconds} ms';
 
   static bool _sameOrigin(Uri a, Uri b) =>
       a.scheme == b.scheme && a.host == b.host && a.port == b.port;

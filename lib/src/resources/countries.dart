@@ -18,6 +18,7 @@ final class CountriesResource {
 
   /// One country by its ISO 3166-1 alpha-2 [code].
   Future<Country> get(String code, {String? lang}) async {
+    requireParam('code', code);
     final body = await _transport
         .send('GET', ['countries', code], query: {'lang': lang});
     return Country.fromJson(asJson(body, 'the country'));
@@ -26,7 +27,7 @@ final class CountriesResource {
   /// The URL of a country's SVG flag: 4:3, or 1:1 with [square]. Flags need no
   /// API key, so the URL can go straight into an image widget.
   Uri flagUrl(String code, {bool square = false}) => _transport.url(
-        ['flags', '${code.toLowerCase()}.svg'],
+        ['flags', '${requireParam('code', code).toLowerCase()}.svg'],
         {if (square) 'shape': '1x1'},
       );
 }

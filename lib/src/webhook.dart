@@ -72,7 +72,9 @@ abstract final class Webhook {
   /// A signing time further than [tolerance] from [now] is rejected, which
   /// stops replays; pass [Duration.zero] to skip that check.
   ///
-  /// Throws a [WebhookSignatureException] when the signature does not verify.
+  /// Throws a [WebhookSignatureException] when the signature does not verify,
+  /// and an [ArgumentError] when [secret] is empty: anyone can sign with an
+  /// empty key, so it usually means the secret was not configured.
   static void verify({
     required String payload,
     required String? signature,
@@ -80,6 +82,7 @@ abstract final class Webhook {
     Duration tolerance = defaultTolerance,
     DateTime? now,
   }) {
+    _checkSecret(secret);
     if (signature == null || signature.trim().isEmpty) {
       throw const WebhookSignatureException('The signature header is missing.');
     }
@@ -170,9 +173,20 @@ abstract final class Webhook {
   /// Useful for testing your receiver.
   static String sign(
       {required String payload, required String secret, DateTime? timestamp}) {
+    _checkSecret(secret);
     final seconds =
         (timestamp ?? DateTime.now()).millisecondsSinceEpoch ~/ 1000;
     return 't=$seconds,v1=${_hmac(secret, '$seconds.$payload')}';
+  }
+
+  static void _checkSecret(String secret) {
+    if (secret.trim().isEmpty) {
+      throw ArgumentError.value(
+          secret,
+          'secret',
+          'is empty. Anyone can sign with an empty key; '
+              'set the subscription signing secret');
+    }
   }
 
   static String _hmac(String secret, String message) =>

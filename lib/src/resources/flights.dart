@@ -21,7 +21,8 @@ final class FlightsResource {
   /// [destination]) or a leg's [flightId] to choose one. With [refresh] the
   /// API skips its cache and asks upstream.
   ///
-  /// Throws [NotFoundException] when the flight did not operate that day.
+  /// Throws [NotFoundException] when the flight did not operate that day, and
+  /// an [ArgumentError] when [carrier], [flightNumber] or [date] is empty.
   Future<FlightSnapshot> get({
     required String carrier,
     required String flightNumber,
@@ -33,7 +34,7 @@ final class FlightsResource {
   }) async {
     final body = await _transport.send(
       'GET',
-      ['flights', carrier, flightNumber, date],
+      _path(carrier, flightNumber, date),
       query: {
         'origin': origin,
         'destination': destination,
@@ -54,9 +55,17 @@ final class FlightsResource {
   }) async {
     final body = await _transport.send(
       'GET',
-      ['flights', carrier, flightNumber, date, 'timeline'],
+      [..._path(carrier, flightNumber, date), 'timeline'],
       query: {'origin': origin, 'destination': destination},
     );
     return FlightTimeline.fromJson(asJson(body, 'the timeline'));
   }
+
+  static List<String> _path(String carrier, String flightNumber, String date) =>
+      [
+        'flights',
+        requireParam('carrier', carrier),
+        requireParam('flightNumber', flightNumber),
+        requireParam('date', date),
+      ];
 }

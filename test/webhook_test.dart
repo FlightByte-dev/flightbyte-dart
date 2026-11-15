@@ -137,6 +137,43 @@ void main() {
         c.signature);
   });
 
+  test('an empty secret is refused, not used as a key', () {
+    final payload = cases.last.payload;
+    for (final empty in ['', '   ']) {
+      final forged = 't=${signedAt.millisecondsSinceEpoch ~/ 1000},'
+          'v1=${'0' * 64}';
+      expect(
+        () => Webhook.verify(
+          payload: payload,
+          signature: forged,
+          secret: empty,
+          now: signedAt,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => Webhook.isValid(
+          payload: payload,
+          signature: forged,
+          secret: empty,
+          now: signedAt,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => Webhook.constructEvent(
+          payload: payload,
+          signature: forged,
+          secret: empty,
+          now: signedAt,
+        ),
+        throwsArgumentError,
+      );
+      expect(() => Webhook.sign(payload: payload, secret: empty),
+          throwsArgumentError);
+    }
+  });
+
   test('constructEvent verifies, then decodes', () {
     final c = cases.last;
     final event = Webhook.constructEvent(

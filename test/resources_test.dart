@@ -294,5 +294,52 @@ void main() {
       expect(h.last.method, 'POST');
       expect(h.last.url.path, '/v1/subscriptions/sub_1/secret/rotate');
     });
+
+    test('an empty id is refused before anything is sent', () {
+      final h = Harness([
+        Reply(200, {'total': 0, 'data': <Object?>[]})
+      ]);
+      final s = h.client.subscriptions;
+      for (final call in <Future<Object?> Function()>[
+        () => s.get(''),
+        () => s.update(' ', delayThresholdMinutes: 5),
+        () => s.delete(''),
+        () => s.pause(''),
+        () => s.resume(''),
+        () => s.sendTest(''),
+        () => s.deliveries(''),
+        () => s.events(''),
+        () => s.secret(''),
+        () => s.rotateSecret(''),
+      ]) {
+        expect(call, throwsArgumentError);
+      }
+      expect(h.requests, isEmpty);
+    });
+  });
+
+  test('empty flight, country and create parameters are refused', () {
+    final h = Harness([Reply(200, <String, Object?>{})]);
+    final c = h.client;
+    expect(
+      () => c.flights.get(carrier: '', flightNumber: '1', date: 'd'),
+      throwsArgumentError,
+    );
+    expect(
+      () => c.flights.timeline(carrier: 'TK', flightNumber: ' ', date: 'd'),
+      throwsArgumentError,
+    );
+    expect(() => c.countries.get(''), throwsArgumentError);
+    expect(() => c.countries.flagUrl(''), throwsArgumentError);
+    expect(
+      () => c.subscriptions.create(
+        carrier: 'TK',
+        flightNumber: '1',
+        date: '',
+        webhookUrl: Uri(),
+      ),
+      throwsArgumentError,
+    );
+    expect(h.requests, isEmpty);
   });
 }
