@@ -1,3 +1,8 @@
+## 1.0.1
+
+- The README logo shows on pub.dev, in light and dark themes: its images load from absolute URLs.
+- `pubspec.yaml` names the repository and the issue tracker.
+
 ## 1.0.0
 
 - First release.
