@@ -1,8 +1,8 @@
 <p align="center">
   <a href="https://flightbyte.dev">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
-      <img src="assets/logo-light.svg" alt="FlightByte" width="340">
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/FlightByte-dev/flightbyte-dart/main/assets/logo-dark.svg">
+      <img src="https://raw.githubusercontent.com/FlightByte-dev/flightbyte-dart/main/assets/logo-light.svg" alt="FlightByte" width="340">
     </picture>
   </a>
 </p>
@@ -323,7 +323,7 @@ The publish workflow checks that the tag, `pubspec.yaml` and `lib/src/version.da
 <br>
 
 <p align="center">
-  <a href="https://flightbyte.dev"><img src="assets/icon.svg" alt="FlightByte" width="36"></a>
+  <a href="https://flightbyte.dev"><img src="https://raw.githubusercontent.com/FlightByte-dev/flightbyte-dart/main/assets/icon.svg" alt="FlightByte" width="36"></a>
   <br>
   <sub><b>FlightByte</b> · Flight intelligence, byte by byte · <a href="https://flightbyte.dev">flightbyte.dev</a></sub>
 </p>
