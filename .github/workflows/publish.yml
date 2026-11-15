@@ -1,4 +1,4 @@
-# Publishes a release when a tag like v0.1.1 is pushed:
+# Publishes a release when a tag like v1.0.1 is pushed:
 #   1. checks that the tag, pubspec.yaml and lib/src/version.dart agree, and
 #      that CHANGELOG.md has a section for the version;
 #   2. publishes to pub.dev, unless that version is already there;

@@ -57,7 +57,7 @@ Maintainers only.
 
 1. Bump `version` in `pubspec.yaml` and `packageVersion` in `lib/src/version.dart`; a test fails if they differ.
 2. Rename `## Unreleased` in `CHANGELOG.md` to the new version.
-3. Push a tag `v<version>`, for example `v0.1.1`.
+3. Push a tag `v<version>`, for example `v1.0.1`.
 
 The publish workflow checks that the tag, `pubspec.yaml` and `lib/src/version.dart` agree, publishes to pub.dev unless that version is already there, and creates the GitHub release from the version's `CHANGELOG.md` section. To rehearse a release without publishing anything, run the workflow by hand from the Actions tab.
 
