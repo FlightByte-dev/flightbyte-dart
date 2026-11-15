@@ -12,7 +12,7 @@
 <p align="center">
   The official Dart client for the FlightByte flight status API.<br>
   Look flights up, watch them with signed webhooks and verify every delivery,<br>
-  from a Flutter app, a Dart server or a CLI.
+  from a Dart server, a CLI or the backend behind your Flutter app.
 </p>
 
 <p align="center">
@@ -243,11 +243,14 @@ Every status is explained in the [errors docs](https://flightbyte.dev/docs/error
 
 ## Built for Flutter and Dart servers
 
+- **Dart servers, CLIs and the backend behind your Flutter app.** It runs everywhere Dart does: iOS, Android, web, macOS, Windows and Linux.
+- **Two dependencies.** [`http`](https://pub.dev/packages/http) and [`crypto`](https://pub.dev/packages/crypto), both from the Dart team.
 - **Your key stays on your server.** An API key or a signing secret shipped inside a mobile or web app can be pulled out of it by anyone who has the app. In Flutter, call your own backend and let the backend use this package. Flag images are the exception: `countries.flagUrl` needs no key.
+- **Your key stays with the API.** The client follows a redirect only for a read, and only on the API's own origin, so a misdirected answer cannot carry the key elsewhere and a write is never sent twice.
 - **New API values don't break old apps.** A phase, status, change type or event type added after this release decodes to an `unknown` member instead of throwing, and the raw string is kept (`typeValue`, `statusValue`, `phaseValue`).
+- **Zero stays apart from unknown.** Values the API may leave out are nullable, so a delay of `0` and no delay reading are different things.
 - **Errors say what to do next.** A number that flies twice comes back with its legs, a `429` with how long to wait, a `402` with the reason and when the allowance resets.
 - **Quotas are visible.** `client.lastRateLimit` holds the minute, day and month windows from the latest response's `X-RateLimit-*` headers.
-- **Two dependencies.** [`http`](https://pub.dev/packages/http) and [`crypto`](https://pub.dev/packages/crypto), both from the Dart team. It runs everywhere Dart does: iOS, Android, web, macOS, Windows and Linux.
 
 ## Configuration
 
